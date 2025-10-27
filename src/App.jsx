@@ -34,8 +34,8 @@ function App() {
         <>
           <section className="mx-auto max-w-6xl px-4 pt-8">
             <div className="overflow-hidden rounded-3xl bg-gradient-to-r from-indigo-600 via-purple-600 to-fuchsia-600 p-8 text-white shadow-lg">
-              <h2 className="text-2xl font-bold">Turn notes into study-ready flashcards</h2>
-              <p className="mt-2 max-w-2xl text-white/90">Upload images of your class notes or paste text, then generate clean flashcards you can export and use anywhere. Smooth, simple, and beautifully organized.</p>
+              <h2 className="text-2xl font-bold">Create flashcards instantly from images</h2>
+              <p className="mt-2 max-w-2xl text-white/90">Upload an image of your notes and turn it into clean Q&A flashcards with one click. Export to JSON/CSV for your study workflow.</p>
             </div>
           </section>
           <OCRWorkspace />
@@ -62,14 +62,14 @@ function App() {
         <div className="mx-auto max-w-4xl px-4 py-10">
           <div className="rounded-2xl border bg-white p-6 shadow-sm">
             <h2 className="text-lg font-semibold text-slate-800">Settings</h2>
-            <p className="mt-2 text-sm text-slate-600">This is a visual template. You can wire actual preferences and OCR backend later.</p>
+            <p className="mt-2 text-sm text-slate-600">Configure preferences like export defaults, theme, and keyboard shortcuts.</p>
           </div>
         </div>
       )}
 
       <footer className="mt-16 border-t bg-white/60">
         <div className="mx-auto max-w-6xl px-4 py-6 text-center text-sm text-slate-600">
-          Built for your Flashcard Generator project • Frontend template ready to connect with a Python backend (OCR + auth + admin)
+          OCR-powered flashcard maker • Connects to a Python backend for image-to-text
         </div>
       </footer>
 

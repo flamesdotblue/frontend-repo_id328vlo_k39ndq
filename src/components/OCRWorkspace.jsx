@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react';
-import { Upload, Sparkles, Download, Trash2, FileText, Camera } from 'lucide-react';
+import { Upload, Sparkles, Download, Trash2, FileText, Camera, AlertCircle } from 'lucide-react';
 
 function download(filename, text) {
   const element = document.createElement('a');
@@ -37,35 +37,56 @@ function Flashcard({ card, onDelete }) {
 
 function OCRWorkspace() {
   const [imagePreview, setImagePreview] = useState('');
-  const [extractedText, setExtractedText] = useState('');
   const [cards, setCards] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
   const fileRef = useRef(null);
+
+  const backendUrl = import.meta.env.VITE_BACKEND_URL || '';
+  const [dataUrl, setDataUrl] = useState('');
 
   const handleFile = (file) => {
     if (!file) return;
     const reader = new FileReader();
-    reader.onload = () => setImagePreview(reader.result);
+    reader.onload = () => {
+      const result = reader.result;
+      setImagePreview(result);
+      setDataUrl(result);
+    };
     reader.readAsDataURL(file);
-    // In this template we do not run OCR in-browser. Use the textarea to paste or edit text.
   };
 
-  const parseToFlashcards = () => {
-    // Simple heuristic: split by newline into facts. If text contains ':' use left as question and right as answer.
-    const lines = extractedText
-      .split(/\n+/)
-      .map((l) => l.trim())
-      .filter(Boolean);
-
-    const generated = lines.map((line, idx) => {
-      if (line.includes(':')) {
-        const [q, ...rest] = line.split(':');
-        return { id: Date.now() + idx, q: q.trim(), a: rest.join(':').trim() };
+  const processWithOCR = async () => {
+    setError('');
+    const input = fileRef.current;
+    const file = input?.files?.[0];
+    if (!file || !dataUrl) {
+      setError('Please upload an image first.');
+      return;
+    }
+    if (!backendUrl) {
+      setError('Backend URL is not configured. Please set VITE_BACKEND_URL.');
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch(`${backendUrl}/api/ocr`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_base64: dataUrl }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || `Request failed with ${res.status}`);
       }
-      // Otherwise create a cloze-style question
-      return { id: Date.now() + idx, q: `What is: ${line}?`, a: line };
-    });
-
-    setCards((prev) => [...prev, ...generated]);
+      const data = await res.json();
+      const generated = (data.cards || []).map((c, idx) => ({ id: Date.now() + idx, q: c.q, a: c.a }));
+      setCards((prev) => [...generated, ...prev]);
+    } catch (e) {
+      setError(e.message || 'OCR failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const exportJSON = () => {
@@ -86,9 +107,9 @@ function OCRWorkspace() {
         <div className="space-y-4">
           <div className="rounded-2xl border bg-white p-5 shadow-sm">
             <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-              <Camera size={18} className="text-indigo-600" /> OCR Input
+              <Camera size={18} className="text-indigo-600" /> OCR from Image
             </h2>
-            <p className="mt-1 text-sm text-slate-600">Upload an image of notes or paste text below. The backend OCR can be wired later — this UI focuses on organizing your study material into flashcards.</p>
+            <p className="mt-1 text-sm text-slate-600">Upload an image of your notes. We will run OCR on the server and convert detected lines into Q&A flashcards.</p>
             <div className="mt-4 flex items-center gap-3">
               <input
                 ref={fileRef}
@@ -105,7 +126,7 @@ function OCRWorkspace() {
               </button>
               {imagePreview && (
                 <button
-                  onClick={() => setImagePreview('')}
+                  onClick={() => { setImagePreview(''); setDataUrl(''); if (fileRef.current) fileRef.current.value=''; }}
                   className="text-sm text-slate-600 underline"
                 >
                   Remove image
@@ -118,32 +139,24 @@ function OCRWorkspace() {
               </div>
             )}
 
-            <div className="mt-4">
-              <label className="mb-1 block text-sm font-medium text-slate-700">Text</label>
-              <textarea
-                value={extractedText}
-                onChange={(e) => setExtractedText(e.target.value)}
-                placeholder={`Example format:\nTerm: Definition\nPhotosynthesis: Process by which plants convert light into energy`}
-                rows={8}
-                className="w-full rounded-lg border bg-white p-3 text-sm shadow-sm outline-none focus:border-indigo-500"
-              />
-            </div>
             <div className="mt-4 flex items-center gap-2">
               <button
-                onClick={parseToFlashcards}
-                className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700"
+                onClick={processWithOCR}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg bg-purple-600 px-4 py-2 text-sm font-semibold text-white shadow hover:bg-purple-700 disabled:opacity-60"
               >
-                <Sparkles size={16} /> Generate Flashcards
-              </button>
-              <button
-                onClick={() => {
-                  setExtractedText('');
-                }}
-                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
-              >
-                Clear Text
+                {loading ? 'Processing…' : (<><Sparkles size={16} /> Generate Flashcards</>)}
               </button>
             </div>
+
+            {error && (
+              <div className="mt-4 flex items-start gap-2 rounded-lg bg-rose-50 p-3 text-rose-700">
+                <AlertCircle size={18} />
+                <div className="text-sm">
+                  {error}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -153,7 +166,7 @@ function OCRWorkspace() {
               <FileText size={18} className="text-fuchsia-600" /> Flashcards ({stats.count})
             </h2>
             {cards.length === 0 ? (
-              <p className="mt-2 text-sm text-slate-600">No flashcards yet. Generate from your text to get started.</p>
+              <p className="mt-2 text-sm text-slate-600">No flashcards yet. Upload an image and click Generate Flashcards.</p>
             ) : (
               <div className="mt-4 grid grid-cols-1 gap-3">
                 {cards.map((c) => (
